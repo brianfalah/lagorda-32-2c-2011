@@ -1,0 +1,7 @@
+<PFS>
+	<IP>192.168.1.108<IP/>
+	<Puerto>7777<Puerto/>
+	<CantidadMaximaDeConexiones>10<CantidadMaximaDeConexiones/>
+	<TamañoDeLaCache><TamañoDeLaCache/>
+	<PathDelArchivoDeMontaje><PathDelArchivoDeMontaje/>
+<PFS/>	
