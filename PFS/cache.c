@@ -366,7 +366,7 @@ void cacheDump(int signum) {
 		bloquesPorCache = tamanoCache / 4096;
 		itoa(bloquesPorCache, bloquesPorCacheString, 10);
 
-		fd = open("/home/pablo/Desktop/cache_dump.txt", O_CREAT | O_RDWR | O_APPEND, S_IRWXU | S_IRWXG | S_IRWXO);
+		fd = open("cache_dump.txt", O_CREAT | O_RDWR | O_APPEND, S_IRWXU | S_IRWXG | S_IRWXO);
 
 		if(fd == -1) {
 
