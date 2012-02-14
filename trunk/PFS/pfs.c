@@ -72,7 +72,7 @@ static int pfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) 
 
 static int pfs_open(const char *path, struct fuse_file_info *fi) {
 	int ret = 0;
-	uint32_t posBytesEntrada = 0, clusterInfo = 0, clusterEntrada = 0, unCluster = 0;
+	uint32_t posBytesEntrada = 0, clusterInfo = 0, clusterEntrada = 0,*unCluster = NULL;
 	t_list* listaClusters = collection_list_create();
 
 	ret = recorrerEntradasPath(path, &clusterInfo,&clusterEntrada, &posBytesEntrada);
@@ -88,7 +88,8 @@ static int pfs_open(const char *path, struct fuse_file_info *fi) {
 	log_write_without_extra_info(archLog,"lista de clusters asociados:");
 	while(collection_list_size(listaClusters)){
 		unCluster = collection_list_remove(listaClusters,0);
-		log_write_without_extra_info(archLog," %u",unCluster);
+		log_write_without_extra_info(archLog," %u",*unCluster);
+		free(unCluster);
 	}
 
 	log_write_without_extra_info(archLog,"\n");
@@ -131,7 +132,7 @@ static int pfs_write(const char *path, const char *buf, size_t size, off_t offse
 
 	//al parecer FUSE hace solo estas comprobaciones
 	ret = recorrerEntradasPath(path, &clusterInfo,&clusterEntrada, &posBytesEntrada);
-	//if(ret!=0) {free(stbuf); return -ENOENT;}
+	if(ret!=0) {free(stbuf); return -ENOENT;}
 
 	if(size == 0){return 0; free(stbuf);}
 
@@ -393,7 +394,7 @@ static struct fuse_operations pfs_oper = {
 };
 
 int handshake(int *socket, char*superip, int puerto){
-	char *msg;
+	char *msg = NULL;
 	NIPC_Header *head = malloc(sizeof(NIPC_Header));
 	char* ip = malloc(strlen(superip)+1);
 	strcpy(ip,superip);
@@ -402,6 +403,9 @@ int handshake(int *socket, char*superip, int puerto){
 	msg = serializarNipc(HANDSHAKE, 0, NULL);
 	send(*socket, msg, sizeof(NIPC_Header), MSG_NOSIGNAL);
 	recv(*socket,head ,sizeof(NIPC_Header), MSG_WAITALL);
+	free(head);
+	free(ip);
+	free(msg);
 	//IMPRIMIR HANDSHAKE CORRECTO
 }
 

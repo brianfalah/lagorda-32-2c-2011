@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "librerias/collections/collections.h"
 #include "librerias/collections/list.h"
+#include "librerias/scanner.h"
 #include "Comun/ProtocoloDeMensajes.h"
 #include "Comun/NIPC.h"
 #include "librerias/log.h"

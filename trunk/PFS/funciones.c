@@ -140,13 +140,15 @@ int recorrerEntradasPath(const char* path, uint32_t* numeroClusterInfo, uint32_t
 	char *delimitadores = "/";
 	//char *token = malloc(13 + 1);
 	char *token; //por lo q vi, no hay q reservar memoria para los strtok
-	char *pathParaTokenizar;
+	char *pathParaTokenizar = NULL;
 	uint32_t numCluster = bs->rootDirectoryStart, clusterAnterior = 0; //inicializa en el cluster del direcorio raiz que es 2
 	int entradaEncontrada = 0;
+	char *resto;
 
-	pathParaTokenizar=strdup(path);
-	//strcpy(pathParaTokenizar,path);
-	token = strtok(pathParaTokenizar, delimitadores);
+//	pathParaTokenizar=strdup(path);
+	pathParaTokenizar = malloc(strlen(path) + 1);
+	strcpy(pathParaTokenizar,path);
+	token = strtok_r(pathParaTokenizar, delimitadores, &resto);
 
 	if (token == NULL) {
 		*numeroClusterInfo = numCluster;
@@ -163,8 +165,8 @@ int recorrerEntradasPath(const char* path, uint32_t* numeroClusterInfo, uint32_t
 				entradaEncontrada = buscarEntradaEnDir(&numCluster, token, posBytesEntrada);
 			}
 
-			token = strtok(NULL,delimitadores);
-		} while (token != NULL && entradaEncontrada == 1);
+			token = strtok_r(NULL,delimitadores, &resto);
+		} while (token != NULL && entradaEncontrada != 0);
 
 		if (entradaEncontrada != 1){
 			free(pathParaTokenizar);
@@ -1114,30 +1116,33 @@ int pedirBloque(char* bloque, int numBloque){
 	sector = (char *)malloc (bs->bytesXsector);
 	primerSector = primerSectorDeBloque(numBloque);
 
-	if(poolConexiones.cantidadConexiones < 4){
+//	if(poolConexiones.cantidadConexiones < 4){
 
 		while(mandadas < 4) {
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
-
-				if(mandadas < 4) {
+			//for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+			while(pos != -1 && mandadas < 4){
+//				if(mandadas < 4) {
 
 					pthread_mutex_lock(&poolConexiones.poolSemaphore);
 					pos = buscarSocketLibre();
 					pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-					posiciones[i] = pos;
-					ret = pedirSector(primerSector + mandadas, pos); //LEER SECTOR CON PROTOCOLO NIPC
-					if(ret)return ret;
+					if (pos != -1){
+						posiciones[mandadas] = pos;
+						ret = pedirSector(primerSector + mandadas, pos); //LEER SECTOR CON PROTOCOLO NIPC
+						if(ret)return ret;
 
-					mandadas++;
-
-				}
-
+						mandadas++;
+					}
+//				}
 			}
+//			}
+			pos = 0;
+//			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
 
-				if(recibidas < 4) {
+			for (i = recibidas; i < mandadas; i++) {
+//				if(recibidas < 4) {
 
 					ret = recibirSector(sector, posiciones[i], &numSec); //LEER SECTOR CON PROTOCOLO NIPC
 					pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
@@ -1145,46 +1150,47 @@ int pedirBloque(char* bloque, int numBloque){
 					memcpy(bloque + (bs->bytesXsector * recibidas), sector, bs->bytesXsector);
 					recibidas++;
 
-				}
-
+//				}
 			}
-
 		}
 
-	}
+//			}
 
-	else {
-		//
-		//printf("Lock Semaforo %p",&poolConexiones.poolSemaphore);
 
-		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
-
-		for (i = 0; i < 4; i++) {
-			pthread_mutex_lock(&poolConexiones.poolSemaphore);
-			pos = buscarSocketLibre();
-			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-			posiciones[i] = pos;
-			ret = pedirSector(primerSector + i, pos);
-			if(ret)return ret;
-//			sectores[i] = primerSector + i;
-		}
-
-		for (i = 0; i < 4; i++) {
-			//readSector(sector, primerSector + i);
-			ret = recibirSector(sector, posiciones[i], &numSec);
-			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
-			if(ret)return ret;
-			//for(j = 0; j < 4; j++){
-			//	if(sectores[j] == numSec) {
-			memcpy(bloque + (bs->bytesXsector * i), sector, bs->bytesXsector);
-			//	}
-			//}
-		}
-
-		//printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
-
-		//
-	}
+//	}
+//
+//	else {
+//		//
+//		//printf("Lock Semaforo %p",&poolConexiones.poolSemaphore);
+//
+//		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
+//
+//		for (i = 0; i < 4; i++) {
+//			pthread_mutex_lock(&poolConexiones.poolSemaphore);
+//			pos = buscarSocketLibre();
+//			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
+//			posiciones[i] = pos;
+//			ret = pedirSector(primerSector + i, pos);
+//			if(ret)return ret;
+////			sectores[i] = primerSector + i;
+//		}
+//
+//		for (i = 0; i < 4; i++) {
+//			//readSector(sector, primerSector + i);
+//			ret = recibirSector(sector, posiciones[i], &numSec);
+//			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
+//			if(ret)return ret;
+//			//for(j = 0; j < 4; j++){
+//			//	if(sectores[j] == numSec) {
+//			memcpy(bloque + (bs->bytesXsector * i), sector, bs->bytesXsector);
+//			//	}
+//			//}
+//		}
+//
+//		//printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
+//
+//		//
+//	}
 
 	free(sector);
 	return 0;
@@ -1202,71 +1208,74 @@ int escribirBloque(char *bloque,int numBloque){
 	sector = (char *)malloc (bs->bytesXsector);
 	primerSector = primerSectorDeBloque(numBloque);
 
-	if(poolConexiones.cantidadConexiones < 4){
+//	if(poolConexiones.cantidadConexiones < 4){
 
 		while(mandadas < 4) {
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
-
-				if(mandadas < 4) {
+			//for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+			while(pos != -1 && mandadas < 4){
+				//if(mandadas < 4 && pos != -1) {
 					pthread_mutex_lock(&poolConexiones.poolSemaphore);
 					pos = buscarSocketLibre();
 					pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-					posiciones[i] = pos;
-					memcpy(sector, bloque + (512 * mandadas), 512);
-					ret = mandarSector(sector, primerSector + mandadas, pos); //ESCRIBIRSECTOR CON NIPC
-					if (ret)return ret;
-					mandadas++;
-
-				}
-
+					if (pos != -1){
+						//posMandadas = i;
+						posiciones[mandadas] = pos;
+						memcpy(sector, bloque + (512 * mandadas), 512);
+						ret = mandarSector(sector, primerSector + mandadas, pos); //ESCRIBIRSECTOR CON NIPC
+						if (ret)return ret;
+						mandadas++;
+					}
+				//}
 			}
+			//}
+			pos = 0;
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+			for (i = recibidas; i < mandadas; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
 
-				if(recibidas < 4) {
+//				if(recibidas < 4) {
 
 					ret = recibirConfirmacion(posiciones[i]);
 					pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
 					if (ret)return ret;
 					recibidas++;
-
-				}
+					//posRecibidas++;
+//				}
 
 			}
 
 		}
 
-	}
-
-	else{
-		//
-
-		//printf("Lock Semaforo %p",&poolConexiones.poolSemaphore);
-
-		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
-
-		for(i = 0; i < 4; i++){ //habria que hacer todos los send y dps esperar las confirmaciones de cada uno con los rcv
-			pthread_mutex_lock(&poolConexiones.poolSemaphore);
-			pos = buscarSocketLibre();
-			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-			posiciones[i] = pos;
-			memcpy(sector, bloque + (512 * i), 512);
-			//writeSector(sector, primerSector+i);
-			ret = mandarSector(sector, primerSector + i, pos); //ESCRIBIRSECTOR CON NIPC
-			if (ret)return ret;
-		}
-
-		for(i = 0; i < 4; i++){ //habria que hacer todos los send y dps esperar las confirmaciones de cada uno con los rcv
-			ret = recibirConfirmacion(posiciones[i]);
-			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
-			if (ret)return ret;
-		}
-
-//		printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
-
-
-	}
+//	}
+//
+//	else{
+//		//
+//
+//		//printf("Lock Semaforo %p",&poolConexiones.poolSemaphore);
+//
+//		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
+//
+//		for(i = 0; i < 4; i++){ //habria que hacer todos los send y dps esperar las confirmaciones de cada uno con los rcv
+//			pthread_mutex_lock(&poolConexiones.poolSemaphore);
+//			pos = buscarSocketLibre();
+//			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
+//			posiciones[i] = pos;
+//			memcpy(sector, bloque + (512 * i), 512);
+//			//writeSector(sector, primerSector+i);
+//			ret = mandarSector(sector, primerSector + i, pos); //ESCRIBIRSECTOR CON NIPC
+//			if (ret)return ret;
+//		}
+//
+//		for(i = 0; i < 4; i++){ //habria que hacer todos los send y dps esperar las confirmaciones de cada uno con los rcv
+//			ret = recibirConfirmacion(posiciones[i]);
+//			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
+//			if (ret)return ret;
+//		}
+//
+////		printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
+//
+//
+//	}
 
 	free(sector);
 	return 0;
@@ -1451,30 +1460,32 @@ int pedirBootSector(char* bloque) {
 	sector = (char *)malloc (512);
 	primerSector = primerSectorDeBloque(0);
 
-	if(poolConexiones.cantidadConexiones < 4){
+//	if(poolConexiones.cantidadConexiones < 4){
 
 		while(mandadas < 4) {
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
-
-				if(mandadas < 4) {
+//			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+			while(pos != -1 && mandadas < 4){
+//				if(mandadas < 4) {
 
 					pthread_mutex_lock(&poolConexiones.poolSemaphore);
 					pos = buscarSocketLibre();
 					pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-
-					posiciones[i] = pos;
-					ret = pedirSector(primerSector + mandadas, pos); //LEER SECTOR CON PROTOCOLO NIPC
-					if(ret)return ret;
-					mandadas++;
-
-				}
-
+					if (pos != -1){
+						posiciones[mandadas] = pos;
+						ret = pedirSector(primerSector + mandadas, pos); //LEER SECTOR CON PROTOCOLO NIPC
+						if(ret)return ret;
+						mandadas++;
+					}
+//				}
 			}
+//			}
+			pos = 0;
+//			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
 
-			for (i = 0; i < poolConexiones.cantidadConexiones; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
 
-				if(recibidas < 4) {
+			for (i = recibidas; i < mandadas; i++) {
+//				if(recibidas < 4) {
 
 					ret = recibirSector(sector, posiciones[i],&numSec); //LEER SECTOR CON PROTOCOLO NIPC
 					pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
@@ -1482,49 +1493,49 @@ int pedirBootSector(char* bloque) {
 					memcpy(bloque + (512 * recibidas), sector, 512);
 					recibidas++;
 
-				}
-
+//				}
 			}
+//			}
 
 		}
 
-	}
-
-	else {
-		//
-
-		//printf("Lock Semaforo %p\n",&poolConexiones.poolSemaphore);
-
-		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
-
-		for (i = 0; i < 4; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
-			pthread_mutex_lock(&poolConexiones.poolSemaphore);
-			pos = buscarSocketLibre();
-			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
-
-			ret = pedirSector(primerSector + i, pos); //LEER SECTOR CON PROTOCOLO NIPC
-			if(ret)return ret;
-			posiciones[i] = pos;
-			//sectores[i] = primerSector + i;
-		}
-
-		for (i = 0; i < 4; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
-			//readSector(sector,primerSector + i);
-			ret = recibirSector(sector, posiciones[i], &numSec); //LEER SECTOR CON PROTOCOLO NIPC
-			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
-			if(ret)return ret;
-			//for(j = 0; j < 4; j++){
-			//if(sectores[j] == numSec) {
-			memcpy(bloque + (512 * i), sector, 512);
-			//}
-			//}
-		}
-
-		//printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
-
-
-		//
-	}
+//	}
+//
+//	else {
+//		//
+//
+//		//printf("Lock Semaforo %p\n",&poolConexiones.poolSemaphore);
+//
+//		//printf("Unlock Semaforo %p\n",&poolConexiones.poolSemaphore);
+//
+//		for (i = 0; i < 4; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+//			pthread_mutex_lock(&poolConexiones.poolSemaphore);
+//			pos = buscarSocketLibre();
+//			pthread_mutex_unlock(&poolConexiones.poolSemaphore);
+//
+//			ret = pedirSector(primerSector + i, pos); //LEER SECTOR CON PROTOCOLO NIPC
+//			if(ret)return ret;
+//			posiciones[i] = pos;
+//			//sectores[i] = primerSector + i;
+//		}
+//
+//		for (i = 0; i < 4; i++) { //aca habria que hacer todos los send y dps todos los rcv y juntarlos,
+//			//readSector(sector,primerSector + i);
+//			ret = recibirSector(sector, posiciones[i], &numSec); //LEER SECTOR CON PROTOCOLO NIPC
+//			pthread_mutex_unlock(&poolConexiones.conexiones[posiciones[i]].socketSemaphore);
+//			if(ret)return ret;
+//			//for(j = 0; j < 4; j++){
+//			//if(sectores[j] == numSec) {
+//			memcpy(bloque + (512 * i), sector, 512);
+//			//}
+//			//}
+//		}
+//
+//		//printf("Unlock Semaforo %p \n",&poolConexiones.conexiones[pos].socketSemaphore);
+//
+//
+//		//
+//	}
 
 	free(sector);
 	return 0;
@@ -1611,14 +1622,14 @@ int buscarSocketLibre(void) {
 		socketUsado = pthread_mutex_trylock(&poolConexiones.conexiones[i].socketSemaphore);
 
 		if(!socketUsado) {
-			printf("mandando por socket posicion: %d\n", i);
+//			printf("mandando por socket posicion: %d\n", i);
 			return i;
 
 		}
 
 		if(socketUsado && i == poolConexiones.cantidadConexiones-1) {
-
-			i = -1;
+			return -1;
+//			i = -1;
 
 		}
 
